@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>미나사 집계</title>
+<style>
+:root{--ink:#0F3D3A;--teal:#2D8B85;--coral:#FF7A59;--paper:#FBFAF7;--line:#DDE5E4;
+  --body:#3A4F4D;--mute:#83918F}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-size:16px;
+  font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif}
+.wrap{max-width:960px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:30px;font-weight:800;letter-spacing:-.7px;margin:0}
+.sub{color:var(--mute);font-size:15.5px;line-height:1.7;margin:8px 0 24px}
+.card{background:#fff;border:1.5px solid var(--line);border-radius:18px;padding:20px;margin-bottom:16px}
+.card h2{font-size:19px;font-weight:800;margin:0 0 12px}
+textarea{width:100%;height:190px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13.5px;
+  padding:14px;border:1.5px solid var(--line);border-radius:12px;outline:none;resize:vertical;
+  color:var(--body);line-height:1.6}
+.drop{border:2.5px dashed var(--line);border-radius:14px;padding:26px;text-align:center;
+  color:var(--mute);margin-bottom:12px;cursor:pointer;background:#fff}
+.drop.hi{border-color:var(--teal);background:#F2F8F7;color:var(--teal)}
+.btn{border:none;border-radius:12px;padding:14px 22px;font-size:16px;font-weight:800;cursor:pointer;
+  background:var(--ink);color:#fff;font-family:inherit}
+.btn.g{background:#fff;color:var(--ink);border:1.5px solid var(--line)}
+.btn.o{background:var(--coral)}
+.btn:disabled{opacity:.4}
+.rowb{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{background:var(--ink);color:#fff;text-align:left;padding:11px 12px;font-size:13.5px;font-weight:700;
+  white-space:nowrap}
+td{border-bottom:1px solid var(--line);padding:11px 12px;vertical-align:middle}
+tr:nth-child(even) td{background:#F6FAF9}
+td.n{text-align:center;font-variant-numeric:tabular-nums}
+.rank{font-weight:800;color:var(--coral);width:38px;text-align:center}
+.nm{font-weight:700}
+.bar{height:9px;border-radius:5px;background:#EAF2F0;overflow:hidden;min-width:60px}
+.bar i{display:block;height:100%;background:var(--teal)}
+.pillrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.pill{background:#EAF2F0;color:var(--teal);border-radius:12px;padding:4px 11px;font-size:12.5px;font-weight:700}
+.stat{display:flex;gap:12px;flex-wrap:wrap}
+.stat div{flex:1;min-width:110px;background:#EAF2F0;border-radius:14px;padding:14px 16px}
+.stat b{display:block;font-size:26px;font-weight:800;letter-spacing:-.6px}
+.stat span{font-size:13px;color:var(--mute)}
+.warn{background:#FFF3EE;border-radius:12px;padding:14px 16px;color:#8A4B36;font-size:14.5px;line-height:1.7}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;background:#EAF2F0;
+  padding:12px 14px;border-radius:10px;white-space:pre-line;color:var(--body);line-height:1.7}
+.day{display:inline-block;width:26px;height:26px;line-height:26px;border-radius:13px;text-align:center;
+  font-size:12.5px;font-weight:800;color:#fff}
+.hide{display:none}
+.small{font-size:13.5px;color:var(--mute);margin-top:10px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>미나사 집계</h1>
+  <p class="sub">단톡방 대화를 내보낸 파일을 넣으면 누가 · 언제 · 무엇을 했는지 표로 만들어 드립니다.<br>
+  파일은 이 화면 안에서만 처리되고 어디로도 전송되지 않습니다.</p>
+
+  <div class="card">
+    <h2>1. 카톡 대화 내보내기</h2>
+    <div class="mono">휴대폰 · 단톡방 열기 → 오른쪽 위 ≡ → 톱니바퀴(설정) → 대화 내용 내보내기 → 텍스트만 보내기 → 메일이나 나에게 보내기
+PC 카카오톡 · 단톡방 열기 → 오른쪽 위 ≡ → 대화 내용 → 대화 내용 저장 → txt 파일</div>
+    <p class="small">사진은 파일에 담기지 않습니다. 그래서 앱에서 <b>집계용 글</b>을 사진과 함께 올려야 집계가 됩니다.</p>
+  </div>
+
+  <div class="card">
+    <h2>2. 파일 넣기</h2>
+    <div class="drop" id="drop">여기에 txt 파일을 끌어다 놓거나 눌러서 고르세요</div>
+    <input type="file" id="file" accept=".txt,.csv,text/plain" style="display:none">
+    <textarea id="ta" placeholder="또는 대화 내용을 그대로 붙여넣으세요"></textarea>
+    <div class="rowb">
+      <button class="btn" id="run">집계하기</button>
+      <button class="btn g" id="demo">예시로 해보기</button>
+    </div>
+  </div>
+
+  <div id="out"></div>
+</div>
+
+<script>
+/* 요일 색 */
+var DC = {'일':'#8B47C9','월':'#D93F45','화':'#EE6A1B','수':'#EFB100','목':'#2E9E5B','금':'#2B6FE8','토':'#3B3FA8'};
+var DON = {'수':'#3A2A00'};
+
+/* 점수 규칙 */
+var SCORE = {meet:1, photo:1, talk:1, kakao:2, seminar:3};
+
+var RE = /#\s*미나사\s+(\S+)\s+(\d{1,2})\/(\d{1,2})\s*\(\s*([월화수목금토일])\s*\)[\s\S]{0,300}?만난\s*사람\s*[:：]\s*([^\r\n]+)[\s\S]{0,200}?사진\s*([OXox○×])\s*대화\s*([OXox○×])\s*카톡초대\s*([OXox○×])\s*세미나초대\s*([OXox○×])/g;
+
+function yes(c){ return /[Oo○]/.test(c); }
+function clean(s){ return s.replace(/\s+/g,' ').trim(); }
+
+function parse(text){
+  var rows=[], m; RE.lastIndex=0;
+  while((m=RE.exec(text))!==null){
+    rows.push({
+      who: clean(m[1]),
+      mm: +m[2], dd: +m[3], day: m[4],
+      target: clean(m[5]),
+      photo: yes(m[6]), talk: yes(m[7]), kakao: yes(m[8]), seminar: yes(m[9])
+    });
+  }
+  /* 같은 사람+같은 날짜+같은 대상 중복 제거 */
+  var seen={}, out=[];
+  rows.forEach(function(r){
+    var k=r.who+'|'+r.mm+'/'+r.dd+'|'+r.target;
+    if(seen[k]) return; seen[k]=1; out.push(r);
+  });
+  return out;
+}
+
+function score(r){
+  return SCORE.meet + (r.photo?SCORE.photo:0) + (r.talk?SCORE.talk:0)
+       + (r.kakao?SCORE.kakao:0) + (r.seminar?SCORE.seminar:0);
+}
+
+function render(rows){
+  var out=document.getElementById('out');
+  if(!rows.length){
+    out.innerHTML='<div class="card"><div class="warn"><b>기록을 찾지 못했습니다.</b><br>'
+      + '앱에서 만든 <b>집계용 글</b>이 대화에 들어 있어야 합니다. 아래 형태여야 해요.<br><br>'
+      + '<span class="mono">#미나사 이소영 9/10(목)\n만난 사람 : 김정숙\n사진X 대화O 카톡초대O 세미나초대X</span>'
+      + '</div></div>';
+    return;
+  }
+
+  /* 사람별 */
+  var by={};
+  rows.forEach(function(r){
+    var k=r.who;
+    if(!by[k]) by[k]={who:k,n:0,photo:0,talk:0,kakao:0,seminar:0,sc:0,days:{},targets:{}};
+    var b=by[k];
+    b.n++; if(r.photo)b.photo++; if(r.talk)b.talk++; if(r.kakao)b.kakao++; if(r.seminar)b.seminar++;
+    b.sc+=score(r); b.days[r.mm+'/'+r.dd]=1; b.targets[r.target]=1;
+  });
+  var people=Object.keys(by).map(function(k){
+    var b=by[k]; b.dayCount=Object.keys(b.days).length; b.people=Object.keys(b.targets).length; return b;
+  }).sort(function(a,b){ return b.sc-a.sc; });
+  var top=people[0].sc||1;
+
+  /* 날짜별 */
+  var byd={};
+  rows.forEach(function(r){ var k=r.mm+'/'+r.dd; if(!byd[k])byd[k]={k:k,day:r.day,n:0,who:{}};
+    byd[k].n++; byd[k].who[r.who]=1; });
+  var days=Object.keys(byd).map(function(k){var d=byd[k]; d.pn=Object.keys(d.who).length; return d;})
+    .sort(function(a,b){ var A=a.k.split('/'),B=b.k.split('/');
+      return (+A[0]*100+ +A[1])-(+B[0]*100+ +B[1]); });
+
+  var tot={n:rows.length, kakao:0, seminar:0, photo:0};
+  rows.forEach(function(r){ if(r.kakao)tot.kakao++; if(r.seminar)tot.seminar++; if(r.photo)tot.photo++; });
+
+  var h='';
+  h+='<div class="card"><h2>전체</h2><div class="stat">'
+   + st(rows.length,'전달 기록') + st(people.length,'참여한 사람')
+   + st(tot.kakao,'카톡 초대') + st(tot.seminar,'세미나 초대') + st(tot.photo,'사진 첨부')
+   + '</div></div>';
+
+  h+='<div class="card"><h2>사람별 순위</h2><table><tr>'
+   + '<th></th><th>이름</th><th>점수</th><th></th><th>기록</th><th>만난 사람</th><th>활동한 날</th>'
+   + '<th>사진</th><th>대화</th><th>카톡</th><th>세미나</th></tr>';
+  people.forEach(function(b,i){
+    h+='<tr><td class="rank">'+(i+1)+'</td><td class="nm">'+esc(b.who)+'</td>'
+     + '<td class="n"><b>'+b.sc+'</b></td>'
+     + '<td style="min-width:90px"><div class="bar"><i style="width:'+Math.round(b.sc/top*100)+'%"></i></div></td>'
+     + '<td class="n">'+b.n+'</td><td class="n">'+b.people+'</td><td class="n">'+b.dayCount+'</td>'
+     + '<td class="n">'+b.photo+'</td><td class="n">'+b.talk+'</td>'
+     + '<td class="n">'+b.kakao+'</td><td class="n">'+b.seminar+'</td></tr>';
+  });
+  h+='</table><p class="small">점수 = 만남 1 + 사진 1 + 대화 1 + 카톡초대 2 + 세미나초대 3</p></div>';
+
+  h+='<div class="card"><h2>날짜별</h2><table><tr><th>날짜</th><th></th><th>기록 수</th><th>참여 인원</th><th></th></tr>';
+  var mx=Math.max.apply(null,days.map(function(d){return d.n;}));
+  days.forEach(function(d){
+    h+='<tr><td class="nm">'+d.k+'</td>'
+     + '<td><span class="day" style="background:'+(DC[d.day]||'#888')+';color:'+(DON[d.day]||'#fff')+'">'+d.day+'</span></td>'
+     + '<td class="n">'+d.n+'</td><td class="n">'+d.pn+'</td>'
+     + '<td style="min-width:120px"><div class="bar"><i style="width:'+Math.round(d.n/mx*100)+'%"></i></div></td></tr>';
+  });
+  h+='</table></div>';
+
+  h+='<div class="card"><h2>전체 기록</h2><table><tr>'
+   + '<th>날짜</th><th></th><th>누가</th><th>누구를</th><th>사진</th><th>대화</th><th>카톡</th><th>세미나</th><th>점수</th></tr>';
+  rows.slice().sort(function(a,b){ return (b.mm*100+b.dd)-(a.mm*100+a.dd); }).forEach(function(r){
+    h+='<tr><td>'+r.mm+'/'+r.dd+'</td>'
+     + '<td><span class="day" style="background:'+(DC[r.day]||'#888')+';color:'+(DON[r.day]||'#fff')+'">'+r.day+'</span></td>'
+     + '<td class="nm">'+esc(r.who)+'</td><td>'+esc(r.target)+'</td>'
+     + ox(r.photo)+ox(r.talk)+ox(r.kakao)+ox(r.seminar)
+     + '<td class="n">'+score(r)+'</td></tr>';
+  });
+  h+='</table><div class="rowb">'
+   + '<button class="btn o" id="csv">엑셀(CSV)로 내려받기</button>'
+   + '<button class="btn g" id="copySum">순위 글로 복사하기</button></div></div>';
+
+  out.innerHTML=h;
+  document.getElementById('csv').onclick=function(){ downloadCSV(rows); };
+  document.getElementById('copySum').onclick=function(){
+    var t='[미나사 집계] 기록 '+rows.length+'건 · 참여 '+people.length+'명\n'
+      + people.map(function(b,i){ return (i+1)+'. '+b.who+' '+b.sc+'점 (기록 '+b.n
+        + ', 카톡초대 '+b.kakao+', 세미나초대 '+b.seminar+')'; }).join('\n');
+    copy(t);
+  };
+}
+function st(v,l){ return '<div><b>'+v+'</b><span>'+l+'</span></div>'; }
+function ox(b){ return '<td class="n" style="color:'+(b?'#2D8B85':'#C3D0CE')+';font-weight:800">'+(b?'O':'·')+'</td>'; }
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function downloadCSV(rows){
+  var head=['날짜','요일','누가','누구를','사진','대화','카톡초대','세미나초대','점수'];
+  var lines=[head.join(',')];
+  rows.forEach(function(r){
+    lines.push([r.mm+'/'+r.dd, r.day, q(r.who), q(r.target),
+      r.photo?'O':'', r.talk?'O':'', r.kakao?'O':'', r.seminar?'O':'', score(r)].join(','));
+  });
+  var blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='미나사_집계.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  function q(s){ return '"'+String(s).replace(/"/g,'""')+'"'; }
+}
+function copy(t){
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(function(){alert('복사했습니다');},fb);
+  } else fb();
+  function fb(){ var ta=document.createElement('textarea'); ta.value=t;
+    document.body.appendChild(ta); ta.select();
+    try{document.execCommand('copy');alert('복사했습니다');}catch(e){alert('복사가 안 됐습니다');}
+    document.body.removeChild(ta); }
+}
+
+/* 입력 */
+var drop=document.getElementById('drop'), file=document.getElementById('file'), ta=document.getElementById('ta');
+drop.onclick=function(){ file.click(); };
+drop.ondragover=function(e){ e.preventDefault(); drop.className='drop hi'; };
+drop.ondragleave=function(){ drop.className='drop'; };
+drop.ondrop=function(e){ e.preventDefault(); drop.className='drop';
+  var f=e.dataTransfer.files[0]; if(f) readFile(f); };
+file.onchange=function(e){ var f=e.target.files[0]; if(f) readFile(f); };
+function readFile(f){
+  var r=new FileReader();
+  r.onload=function(){ ta.value=r.result; drop.textContent=f.name+' 를 읽었습니다'; go(); };
+  r.readAsText(f,'utf-8');
+}
+function go(){ render(parse(ta.value)); }
+document.getElementById('run').onclick=go;
+
+document.getElementById('demo').onclick=function(){
+  ta.value=[
+    '2026년 9월 7일 오후 2:11, 이소영 : #미나사 이소영 9/7(월)',
+    '만난 사람 : 김정숙',
+    '사진O 대화O 카톡초대O 세미나초대X',
+    '2026년 9월 7일 오후 6:02, 박순자 : #미나사 박순자 9/7(월)',
+    '만난 사람 : 최영님',
+    '사진X 대화O 카톡초대X 세미나초대X',
+    '2026년 9월 8일 오전 10:40, 이소영 : #미나사 이소영 9/8(화)',
+    '만난 사람 : 이정미',
+    '사진O 대화O 카톡초대O 세미나초대O',
+    '2026년 9월 9일 오후 1:20, 박순자 : #미나사 박순자 9/9(수)',
+    '만난 사람 : 정해숙',
+    '사진O 대화O 카톡초대O 세미나초대X',
+    '2026년 9월 10일 오전 9:05, 고윤주 : #미나사 고윤주 9/10(목)',
+    '만난 사람 : 한미경',
+    '사진X 대화O 카톡초대X 세미나초대O',
+    '2026년 9월 10일 오후 8:31, 이소영 : #미나사 이소영 9/10(목)',
+    '만난 사람 : 서은영',
+    '사진O 대화O 카톡초대X 세미나초대X'
+  ].join('\n');
+  go();
+};
+</script>
+</body>
+</html>
