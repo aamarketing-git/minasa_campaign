@@ -288,7 +288,6 @@ function scPerson(){
       h += '<div class="tags">'
         + (l.photo?'<span>사진</span>':'')
         + '<span>만남</span>'
-        + (l.talk?'<span>대화</span>':'')
         + (l.kakao?'<span>카톡초대</span>':'')
         + (l.seminar?'<span>세미나초대</span>':'')
         + '</div>'
@@ -324,7 +323,6 @@ function scS3(){
   return head('전달 기록','s2','3/5')
     + '<div class="pad"><div class="q">오늘 무엇을<br>하셨나요?</div>'
     + '<p class="hint">해당되는 것만 누르세요.</p>'
-    + row('talk','대화를 나눴어요', d.talk)
     + row('kakao','카톡방에 초대했어요', d.kakao)
     + row('seminar','세미나에 초대했어요', d.seminar)
     + '<div class="gap"></div><div class="gap"></div>'
@@ -413,10 +411,15 @@ function loadImg(src){
 async function drawCard(p, l){
   var CF='"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif';
   var day=dayOf(l.date);
-  var W=1080, cv=document.createElement('canvas'), ctx=cv.getContext('2d');
+  var W=1080, H=1920;                    /* 9:16 고정 */
+  var cv=document.createElement('canvas'), ctx=cv.getContext('2d');
+  cv.width=W; cv.height=H;
   var img = l.photo ? await loadImg(l.photo) : null;
   var prod = await loadImg(product());
 
+  function round(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
   function wrap(t,max,size,weight){
     ctx.font=(weight||400)+' '+size+'px '+CF; var out=[];
     String(t).split('\n').forEach(function(par){
@@ -427,49 +430,53 @@ async function drawCard(p, l){
     });
     return out;
   }
-  /* 글자가 칸을 넘으면 자동으로 조금 줄입니다 */
   function fitFont(t,max,size,weight){
     var s=size;
-    while(s>size*0.62){
-      ctx.font=(weight||800)+' '+s+'px '+CF;
-      if(ctx.measureText(t).width<=max) break;
-      s-=2;
-    }
+    while(s>size*0.6){ ctx.font=(weight||800)+' '+s+'px '+CF;
+      if(ctx.measureText(t).width<=max) break; s-=2; }
     return s;
   }
 
-  var mineL  = l.mine   ? wrap(l.mine,930,51)   : [];
-  var theirL = l.theirs ? wrap(l.theirs,930,51) : [];
-  var items = [
+  /* ── 레이아웃 계산 ── */
+  var HD=408, FT=170, TOP=HD, BOT=H-FT, AVAIL=BOT-TOP;
+  var COLW=440, LX=60, RX=580, LINEH=54, TALKF=38;
+
+  var items=[
     {t:'사진',       on:!!l.photo},
     {t:'만난 사람',   on:true},
-    {t:'언급한 대화', on:!!l.talk},
     {t:'카톡 초대',   on:!!l.kakao},
     {t:'세미나 초대', on:!!l.seminar}
   ];
+  var nameH=150, checksH=items.length*100+24;
 
-  var HD=408;
-  var H = HD;
-  if(img) H += 700;
-  H += 178;                        /* 이름 */
-  H += items.length*100 + 44;
-  if(mineL.length)  H += 84 + mineL.length*72 + 34;
-  if(theirL.length) H += 84 + theirL.length*72 + 34;
-  H += 160;
-  cv.width=W; cv.height=H;
+  var mineL  = l.mine   ? wrap(l.mine,COLW,TALKF)   : [];
+  var theirL = l.theirs ? wrap(l.theirs,COLW,TALKF) : [];
+  var hasTalk = mineL.length || theirL.length;
+  var maxLines = Math.max(mineL.length, theirL.length);
+  var photoH = img ? 620 : 0;
 
-  function round(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y);
-    ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
-    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+  function talkH(){ return hasTalk ? 72 + maxLines*LINEH : 0; }
+  /* 넘치면 사진을 줄이고, 그래도 넘치면 대화 줄을 줄입니다 */
+  while(photoH+nameH+checksH+talkH()+80 > AVAIL){
+    if(photoH>300) photoH-=20;
+    else if(maxLines>2) maxLines--;
+    else break;
+  }
+  if(maxLines < mineL.length){ mineL=mineL.slice(0,maxLines); mineL[maxLines-1]+='…'; }
+  if(maxLines < theirL.length){ theirL=theirL.slice(0,maxLines); theirL[maxLines-1]+='…'; }
 
+  var blocks=[]; if(img) blocks.push(photoH);
+  blocks.push(nameH, checksH); if(hasTalk) blocks.push(talkH());
+  var used=blocks.reduce(function(a,b){return a+b;},0);
+  var gap=Math.max(18,(AVAIL-used)/(blocks.length+1));
+
+  /* ── 배경 ── */
   ctx.fillStyle='#FBFAF7'; ctx.fillRect(0,0,W,H);
 
-  /* ── 요일 색 헤더 ── */
+  /* ── 헤더 ── */
   ctx.fillStyle=day.c; ctx.fillRect(0,0,W,HD);
   ctx.globalAlpha=.14; ctx.fillStyle='#FFFFFF';
   ctx.beginPath(); ctx.arc(1030,20,235,0,Math.PI*2); ctx.fill(); ctx.globalAlpha=1;
-
-  /* 제품 사진 (오른쪽 아래) */
   if(prod){
     var ps=196, px=W-70-ps, py=172;
     ctx.save();
@@ -478,70 +485,69 @@ async function drawCard(p, l){
     ctx.restore();
     ctx.save(); round(px,py,ps,ps,20); ctx.clip();
     var sc=Math.max(ps/prod.width, ps/prod.height);
-    var pw2=prod.width*sc, ph2=prod.height*sc;
-    ctx.drawImage(prod, px+(ps-pw2)/2, py+(ps-ph2)/2, pw2, ph2);
+    ctx.drawImage(prod, px+(ps-prod.width*sc)/2, py+(ps-prod.height*sc)/2,
+                  prod.width*sc, prod.height*sc);
     ctx.restore();
   }
-
   ctx.fillStyle=day.on;
   var eb='미나사(미네랄을 나누는 사람들) 챌린지';
-  var ebs=fitFont(eb,940,54,800);
-  ctx.font='800 '+ebs+'px '+CF;
+  ctx.font='800 '+fitFont(eb,940,54,800)+'px '+CF;
   ctx.fillText(eb,70,116);
-
-  ctx.font='800 108px '+CF;
-  ctx.fillText(md(l.date),70,262);
+  ctx.font='800 108px '+CF; ctx.fillText(md(l.date),70,262);
   ctx.globalAlpha=.95; ctx.font='800 60px '+CF;
   ctx.fillText(day.k+' · '+(S.me||'나')+'님',70,350); ctx.globalAlpha=1;
 
-  var y=HD;
+  var y=TOP+gap;
 
-  /* ── 사용자 사진 ── */
+  /* ── 사진 ── */
   if(img){
-    var bx=70,bw=W-140,bh=620;
-    ctx.save(); round(bx,y+40,bw,bh,30); ctx.clip();
-    var s2=Math.max(bw/img.width,bh/img.height), dw=img.width*s2, dh=img.height*s2;
-    ctx.drawImage(img, bx+(bw-dw)/2, y+40+(bh-dh)/2, dw, dh);
-    ctx.restore(); y+=700;
+    var bx=60, bw=W-120;
+    ctx.save(); round(bx,y,bw,photoH,30); ctx.clip();
+    var s2=Math.max(bw/img.width, photoH/img.height);
+    ctx.drawImage(img, bx+(bw-img.width*s2)/2, y+(photoH-img.height*s2)/2,
+                  img.width*s2, img.height*s2);
+    ctx.restore(); y+=photoH+gap;
   }
 
   /* ── 만난 사람 ── */
   var title=p.name+'님을 만났어요';
-  var ts=fitFont(title,940,93,800);
-  ctx.fillStyle='#0F3D3A'; ctx.font='800 '+ts+'px '+CF;
-  ctx.fillText(title,70,y+112);
-  y+=178;
+  ctx.fillStyle='#0F3D3A'; ctx.font='800 '+fitFont(title,960,93,800)+'px '+CF;
+  ctx.fillText(title,60,y+104);
+  y+=nameH+gap;
 
   /* ── 체크 ── */
   items.forEach(function(it,i){
     var cy=y+i*100;
     ctx.fillStyle = it.on?day.c:'#E6ECEB';
-    ctx.beginPath(); ctx.arc(106,cy+34,34,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(96,cy+34,34,0,Math.PI*2); ctx.fill();
     if(it.on){ ctx.strokeStyle=day.on; ctx.lineWidth=8; ctx.lineCap='round'; ctx.lineJoin='round';
-      ctx.beginPath(); ctx.moveTo(89,cy+34); ctx.lineTo(101,cy+47); ctx.lineTo(124,cy+20); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(79,cy+34); ctx.lineTo(91,cy+47); ctx.lineTo(114,cy+20); ctx.stroke(); }
     ctx.fillStyle = it.on?'#0F3D3A':'#B3C1BF';
     ctx.font=(it.on?800:500)+' 60px '+CF;
-    ctx.fillText(it.t,170,cy+54);
+    ctx.fillText(it.t,160,cy+54);
   });
-  y+=items.length*100+44;
+  y+=checksH+gap;
 
-  function block(label,lines){
-    ctx.fillStyle=day.c; ctx.font='800 42px '+CF; ctx.fillText(label,70,y+48); y+=84;
-    ctx.fillStyle='#3A4F4D'; ctx.font='400 51px '+CF;
-    lines.forEach(function(t,i){ ctx.fillText(t,70,y+i*72+50); });
-    y+=lines.length*72+34;
+  /* ── 대화: 왼쪽 나 · 오른쪽 상대 ── */
+  if(hasTalk){
+    ctx.fillStyle=day.c; ctx.font='800 34px '+CF;
+    ctx.fillText('내가 한 말',LX,y+38);
+    ctx.fillText('상대가 한 말',RX,y+38);
+    ctx.strokeStyle='#DDE5E4'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(RX-40,y+6); ctx.lineTo(RX-40,y+52+maxLines*LINEH); ctx.stroke();
+    ctx.fillStyle='#3A4F4D'; ctx.font='400 '+TALKF+'px '+CF;
+    mineL.forEach(function(t,i){ ctx.fillText(t,LX,y+96+i*LINEH); });
+    theirL.forEach(function(t,i){ ctx.fillText(t,RX,y+96+i*LINEH); });
   }
-  if(mineL.length)  block('내가 한 말',mineL);
-  if(theirL.length) block('상대가 한 말',theirL);
 
   /* ── 푸터 ── */
-  ctx.fillStyle='#EDF2F1'; ctx.fillRect(0,H-160,W,160);
+  ctx.fillStyle='#EDF2F1'; ctx.fillRect(0,H-FT,W,FT);
   ctx.fillStyle=day.c; ctx.font='800 45px '+CF;
-  ctx.fillText('미네랄을 나누는 사람들',70,H-62);
+  ctx.fillText('미네랄을 나누는 사람들',60,H-66);
   if(p.next && p.next.date){
     ctx.fillStyle='#83918F'; ctx.font='600 42px '+CF;
     var nx='다음 '+mdShort(p.next.date);
-    ctx.fillText(nx, W-70-ctx.measureText(nx).width, H-62);
+    ctx.fillText(nx, W-60-ctx.measureText(nx).width, H-66);
   }
   return cv.toDataURL('image/png');
 }
@@ -552,41 +558,50 @@ function summaryText(p,l){
   var o = function(b){ return b?'O':'X'; };
   return '#미나사 '+(S.me||'나')+' '+mdShort(l.date)+'('+d.s+')\n'
     + '만난 사람 : '+p.name+'\n'
-    + '사진'+o(!!l.photo)+' 대화'+o(!!l.talk)+' 카톡초대'+o(!!l.kakao)+' 세미나초대'+o(!!l.seminar);
+    + '사진'+o(!!l.photo)+' 카톡초대'+o(!!l.kakao)+' 세미나초대'+o(!!l.seminar);
+}
+
+function dataURLtoFile(u,name){
+  var parts=u.split(','), mime=parts[0].match(/:(.*?);/)[1];
+  var bin=atob(parts[1]), n=bin.length, arr=new Uint8Array(n);
+  while(n--) arr[n]=bin.charCodeAt(n);
+  var blob=new Blob([arr],{type:mime});
+  try{ return new File([blob],name,{type:mime}); }catch(e){ return blob; }
 }
 
 async function showCard(p,l){
   V.screen='card'; render();
   var url = await drawCard(p,l);
   V.copyText = summaryText(p,l);
+  V.cardFile = dataURLtoFile(url, '미나사_'+p.name+'.png');
   document.getElementById('cardWrap').innerHTML =
     '<img src="'+url+'" style="width:100%;border-radius:18px;display:block;box-shadow:0 8px 26px rgba(15,61,58,.16)">'
     + '<div class="gap"></div><div class="gap"></div>'
-    + '<button class="btn day" id="shareBtn">카톡에 올리기</button>'
+    + '<button class="btn day" id="shareBtn">카톡으로 사진 보내기</button>'
     + '<p class="mini"><b>누르면 글이 자동으로 복사됩니다.</b><br>'
     + '단톡방에 사진을 보낸 다음, 입력창을 꾹 눌러 <b>붙여넣기</b> 한 번만 더 해주세요.<br>'
     + '사진과 글이 둘 다 있어야 집계가 됩니다.</p>'
     + '<div class="gap"></div>'
     + '<button class="btn g" data-go="copy">글이 복사가 안 됐어요</button>';
   bind();
-  document.getElementById('shareBtn').onclick=function(){ shareImg(url, p.name, V.copyText); };
+  document.getElementById('shareBtn').onclick=shareImg;
 }
 
-async function shareImg(url,name,text){
-  /* 손가락을 뗀 순간 바로 복사해야 붙여넣기가 됩니다 */
-  var copied = copyNow(text);
-  try{
-    var blob = await (await fetch(url)).blob();
-    var file = new File([blob], '미나사.png', {type:'image/png'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      await navigator.share({files:[file], text:text});
-      toast(copied ? '사진 보낸 뒤 붙여넣기 하세요' : '글은 아래 버튼으로 복사하세요');
-      return;
-    }
-  }catch(e){}
-  var a=document.createElement('a'); a.href=url; a.download='미나사_'+name+'.png';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  toast(copied ? '사진 저장 · 글도 복사했어요' : '사진을 저장했어요');
+/* 공유창은 손가락을 뗀 그 순간에 열어야 합니다.
+   중간에 기다리는 동작이 끼면 브라우저가 막아버려서 다운로드로 빠집니다. */
+function shareImg(){
+  var file=V.cardFile, text=V.copyText||'';
+  copyNow(text);
+  if(file && navigator.canShare && navigator.canShare({files:[file]})){
+    navigator.share({files:[file], text:text})
+      .then(function(){ toast('사진 보낸 뒤 붙여넣기 하세요'); })
+      .catch(function(err){
+        if(err && err.name==='AbortError') return;
+        toast('사진을 길게 눌러 저장해 주세요');
+      });
+  } else {
+    toast('사진을 길게 눌러 저장한 뒤 보내세요');
+  }
 }
 
 /* 즉시(동기) 복사 — 성공 여부를 돌려줍니다 */
@@ -708,7 +723,7 @@ function bind(){
     el.onclick=function(){
       var p=person(el.getAttribute('data-start'));
       V.draft={pid:p.id,name:p.name,date:today(),mine:'',theirs:'',
-               talk:false,kakao:false,seminar:false,photo:null,
+               kakao:false,seminar:false,photo:null,
                nextDate:(p.next&&p.next.date)||'',nextNote:(p.next&&p.next.note)||''};
       go('s1');
     };
@@ -758,7 +773,7 @@ function bind(){
     fin.onclick=function(){
       var d=V.draft, p=person(d.pid);
       var log={id:uid(),date:d.date,mine:d.mine.trim(),theirs:d.theirs.trim(),
-               talk:d.talk,kakao:d.kakao,seminar:d.seminar,photo:d.photo};
+               kakao:d.kakao,seminar:d.seminar,photo:d.photo};
       p.logs=p.logs||[]; p.logs.push(log);
       p.next = d.nextDate ? {date:d.nextDate, note:(d.nextNote||'').trim()} : p.next;
       save(); V.draft=null; V.pid=p.id;
